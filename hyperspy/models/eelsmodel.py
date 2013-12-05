@@ -22,15 +22,15 @@ import numpy as np
 import traits.api as t
 
 from hyperspy.model import Model
-from hyperspy.components.eels_cl_edge import EELSCLEdge
+from hyperspy.components import EELSCLEdge
 from hyperspy.components import PowerLaw
-from hyperspy.misc.interactive_ns import interactive_ns
+from hyperspy.misc.ipython_tools import get_interactive_ns
 from hyperspy.defaults_parser import preferences
 import hyperspy.messages as messages
 from hyperspy import components
 from hyperspy.decorators import only_interactive
 from hyperspy.exceptions import MissingParametersError
-from hyperspy.signals.eels import EELSSpectrum
+from hyperspy._signals.eels import EELSSpectrum
 import hyperspy.gui.messages as messagesui
 
 def _give_me_delta(master, slave):
@@ -75,6 +75,7 @@ class EELSModel(Model):
         self.low_loss = ll
         self.GOS = GOS
         if auto_background is True:
+            interactive_ns = get_interactive_ns()
             background = PowerLaw()
             background.name = 'background'
             interactive_ns['background'] = background
@@ -93,14 +94,17 @@ class EELSModel(Model):
             self._spectrum = value
             self.spectrum._are_microscope_parameters_missing()
         else:
-            raise WrongObjectError(str(type(value)), 'EELSSpectrum')
+            raise ValueError(
+                "This attribute can only contain an EELSSpectrum "
+                "but an object of type %s was provided" % 
+                str(type(value)))
                     
             
     def _touch(self):
         """Run model setup tasks
         
         This function must be called everytime that we add or remove components
-        <undefined>       from the model.
+        from the model.
         It creates the bookmarks self.edges and sef._background_components and 
         configures the edges by setting the energy_scale attribute and setting 
         the fine structure.
@@ -153,6 +157,7 @@ class EELSModel(Model):
             If True, variables with the format Element_Shell will be 
             created in IPython's interactive shell
         """
+        interactive_ns = get_interactive_ns()
         if e_shells is None:
             e_shells = list(self.spectrum.subshells)
         e_shells.sort()
@@ -347,8 +352,8 @@ class EELSModel(Model):
             self._fit_edge(i, start_energy, **kwargs)
             
     def fit_background(self,start_energy=None, kind='single', **kwargs):
-        """Fit an EELS spectrum ionization edge by ionization edge from left 
-        to right to optimize convergence.
+        """Fit the background to the first active ionization edge 
+        in the energy range.
         
         Parameters
         ----------
@@ -375,15 +380,14 @@ class EELSModel(Model):
         if start_energy is None:
             start_energy = ea[0]
         i = 0
-        while edge.onset_energy.value < start_energy or edge.active is False:
+        while (edge.onset_energy.value < start_energy or 
+               edge.active is False):
             i+=1
             edge = edges.pop(0)
-        self.set_signal_range(start_energy,edge.onset_energy.value - \
-        preferences.EELS.preedge_safe_window_width)
-        active_edges = []
-        for edge in self.edges[i:]:
-            if edge.active:
-                active_edges.append(edge)
+        self.set_signal_range(
+            start_energy, edge.onset_energy.value - 
+            preferences.EELS.preedge_safe_window_width)
+        active_edges = [edge for edge in self.edges[i:] if bg.active]
         self.disable_edges(active_edges)
         if kind == 'single':
             self.fit(**kwargs)
@@ -439,7 +443,7 @@ class EELSModel(Model):
         
         if powerlaw.estimate_parameters(
             self.spectrum, E1, E2, False) is True:
-            self.charge()
+            self.fetch_stored_values()
         else:
             messages.warning(
             "The power law background parameters could not "

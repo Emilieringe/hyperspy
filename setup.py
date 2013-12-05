@@ -24,7 +24,6 @@ import distutils.dir_util
 import os
 import subprocess
 import sys
-import shutil
 import fileinput
 
 import hyperspy.Release as Release
@@ -136,19 +135,26 @@ with update_version_when_dev() as version:
         package_dir = {'hyperspy': 'hyperspy'},
         version = version,
         packages = ['hyperspy',
-                    'hyperspy.components',
+                    'hyperspy._components',
                     'hyperspy.io_plugins', 
                     'hyperspy.drawing',
                     'hyperspy.learn',
-                    'hyperspy.signals', 
+                    'hyperspy._signals', 
                     'hyperspy.gui',
                     'hyperspy.tests',
-                    'hyperspy.models',
+                    'hyperspy.tests.component',
                     'hyperspy.tests.io',
+                    'hyperspy.tests.model',
+                    'hyperspy.tests.signal',
+                    'hyperspy.models',
                     'hyperspy.misc',
                     'hyperspy.misc.eels',
+                    'hyperspy.misc.eds',
+                    'hyperspy.misc.io',
+                    'hyperspy.misc.machine_learning',
                     'hyperspy.misc.mpfit', 
-                    'hyperspy.misc.mpfit.tests'],
+                    'hyperspy.misc.mpfit.tests',
+                    ],
         requires = install_req,
         scripts = scripts,
         package_data = 
@@ -160,6 +166,11 @@ with update_version_when_dev() as version:
             'tests/io/dm3_1D_data/*.dm3',
             'tests/io/dm3_2D_data/*.dm3',
             'tests/io/dm3_3D_data/*.dm3',
+            'tests/io/dm4_1D_data/*.dm4',
+            'tests/io/dm4_2D_data/*.dm4',
+            'tests/io/dm4_3D_data/*.dm4',
+            'tests/io/msa_files/*.msa',
+            'tests/drawing/*.ipynb',
                 ],
         },
         author = Release.authors['all'][0],

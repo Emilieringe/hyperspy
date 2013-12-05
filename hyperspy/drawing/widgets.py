@@ -17,7 +17,6 @@
 # along with  Hyperspy.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import division
-import copy
 
 import matplotlib.pyplot as plt
 import matplotlib.widgets
@@ -26,8 +25,7 @@ import numpy as np
 import traits
 
 from utils import on_figure_window_close
-from hyperspy.misc.utils import closest_nice_number
-from hyperspy.drawing.utils import does_figure_object_exists
+from hyperspy.misc.math_tools import closest_nice_number
 
 class DraggablePatch(object):
     """
@@ -67,8 +65,10 @@ class DraggablePatch(object):
                         container.remove(self.patch)
                 self.disconnect(self.ax)
             self.__is_on = value
-            if does_figure_object_exists(self.ax.figure):
+            try:
                 self.ax.figure.canvas.draw()
+            except: # figure does not exist
+                pass
             else:
                 self.ax = None
                 
@@ -79,7 +79,6 @@ class DraggablePatch(object):
     def add_patch_to(self, ax):
         self.set_patch()
         ax.add_artist(self.patch)
-        canvas = ax.figure.canvas
         self.patch.set_animated(hasattr(ax, 'hspy_fig'))
 
     def add_axes(self, ax):
@@ -185,13 +184,13 @@ class DraggableSquare(ResizebleDraggablePatch):
                         picker=True,)
         
     def calculate_size(self):
-        xaxis = self.axes_manager.navigation_axes[-1]
-        yaxis = self.axes_manager.navigation_axes[-2]
+        xaxis = self.axes_manager.navigation_axes[0]
+        yaxis = self.axes_manager.navigation_axes[1]
         self._xsize = xaxis.scale * self.size
         self._ysize = yaxis.scale * self.size
         
     def calculate_position(self):
-        coordinates = np.array(self.axes_manager.coordinates[::-1])[:2]
+        coordinates = np.array(self.axes_manager.coordinates[:2])
         self._position = coordinates - (
                             self._xsize / 2., self._ysize / 2.)
 
@@ -208,21 +207,21 @@ class DraggableSquare(ResizebleDraggablePatch):
 
     def onmove(self, event):
         'on mouse motion draw the cursor if picked'
-        xaxis = self.axes_manager.navigation_axes[-1]
-        yaxis = self.axes_manager.navigation_axes[-2]
-        wxindex = xaxis.value2index(event.xdata)
-        wyindex = yaxis.value2index(event.ydata)
         if self.picked is True and event.inaxes:
+            xaxis = self.axes_manager.navigation_axes[0]
+            yaxis = self.axes_manager.navigation_axes[1]
             wxindex = xaxis.value2index(event.xdata)
             wyindex = yaxis.value2index(event.ydata)
-            if self.axes_manager.coordinates[-2] != wyindex:
+            wxindex = xaxis.value2index(event.xdata)
+            wyindex = yaxis.value2index(event.ydata)
+            if self.axes_manager.indices[1] != wyindex:
                 try:
                     yaxis.index = wyindex
                 except traits.api.TraitError:
                     # Index out of range, we do nothing
                     pass
                     
-            if  self.axes_manager.coordinates[-1] != wxindex:
+            if  self.axes_manager.indices[0] != wxindex:
                 try:
                     xaxis.index = wxindex
                 except traits.api.TraitError:

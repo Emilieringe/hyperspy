@@ -29,7 +29,6 @@ from hyperspy import components
 from hyperspy.component import Component
 from hyperspy.misc import utils
 from hyperspy import drawing
-from hyperspy.misc.interactive_ns import interactive_ns
 from hyperspy.gui.tools import (SpanSelectorInSpectrum, 
     SpanSelectorInSpectrumHandler,OurFindButton, OurPreviousButton,
     OurApplyButton)
@@ -103,7 +102,9 @@ class BackgroundRemoval(SpanSelectorInSpectrum):
     def create_background_line(self):
         self.bg_line = drawing.spectrum.SpectrumLine()
         self.bg_line.data_function = self.bg_to_plot
-        self.bg_line.line_properties_helper('blue', 'line')
+        self.bg_line.set_line_properties(
+            color='blue',
+            type='line')
         self.signal._plot.signal_plot.add_line(self.bg_line)
         self.bg_line.autoscale = False
         self.bg_line.plot()
@@ -145,24 +146,10 @@ class BackgroundRemoval(SpanSelectorInSpectrum):
             
     def apply(self):
         self.signal._plot.auto_update_plot = False
-        maxval = self.signal.axes_manager.navigation_size
-        if maxval > 0:
-            pbar = progressbar(maxval=maxval)
-        i = 0
-        self.bg_line_range = 'full'
-        for s in self.signal:
-            s.data[:] -= \
-            np.nan_to_num(self.bg_to_plot(self.signal.axes_manager,
-                                          0))
-            if self.background_type == 'Power Law':
-                s.data[:self.axis.value2index(self.ss_right_value)] = 0
-                
-            i+=1
-            if maxval > 0:
-                pbar.update(i)
-        if maxval > 0:
-            pbar.finish()
-            
+        new_spectra = self.signal._remove_background_cli(
+                (self.ss_left_value, self.ss_right_value),
+                self.background_estimator)
+        self.signal.data = new_spectra.data
         self.signal._replot()
         self.signal._plot.auto_update_plot = True
         
@@ -239,10 +226,10 @@ class SpikesRemoval(SpanSelectorInSpectrum):
     def __init__(self, signal,navigation_mask=None, signal_mask=None):
         super(SpikesRemoval, self).__init__(signal)
         self.interpolated_line = None
-        self.coordinates = [coordinate for coordinate in np.ndindex(
-                            tuple(signal.axes_manager.navigation_shape))
+        self.coordinates = [coordinate for coordinate in 
+                            signal.axes_manager._am_indices_generator()
                             if (navigation_mask is None or not 
-                                navigation_mask[coordinate])]
+                                navigation_mask[coordinate[::-1]])]
         self.signal = signal
         sys.setrecursionlimit(np.cumprod(self.signal.data.shape)[-1])
         self.line = signal._plot.signal_plot.ax_lines[0]
@@ -350,7 +337,9 @@ class SpikesRemoval(SpanSelectorInSpectrum):
         self.interpolated_line = drawing.spectrum.SpectrumLine()
         self.interpolated_line.data_function = \
             self.get_interpolated_spectrum
-        self.interpolated_line.line_properties_helper('blue', 'line')
+        self.interpolated_line.set_line_properties(
+            color='blue',
+            type='line')
         self.signal._plot.signal_plot.add_line(self.interpolated_line)
         self.interpolated_line.autoscale = False
         self.interpolated_line.plot()
